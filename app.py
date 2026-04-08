@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Query
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from copy import deepcopy
@@ -16,10 +16,6 @@ app = FastAPI(
 class Action(BaseModel):
     action_type: str
     permission: Optional[str] = None
-
-
-class ResetRequest(BaseModel):
-    task_id: Optional[str] = None
 
 
 # =========================
@@ -150,7 +146,6 @@ def compute_score(state: Dict[str, Any]) -> float:
 
     score = 0.0
 
-    # Inspection bonuses
     if state["inspected_user"]:
         score += 0.05
     if state["inspected_permissions"]:
@@ -158,7 +153,6 @@ def compute_score(state: Dict[str, Any]) -> float:
     if state["inspected_policies"]:
         score += 0.10
 
-    # Correct permission handling
     correct_kept = allowed.intersection(current)
     correct_revoked = forbidden.intersection(revoked)
     total_expected = len(allowed) + len(forbidden)
@@ -166,7 +160,6 @@ def compute_score(state: Dict[str, Any]) -> float:
     if total_expected > 0:
         score += 0.60 * ((len(correct_kept) + len(correct_revoked)) / total_expected)
 
-    # Escalation handling
     if policy["requires_escalation"]:
         if state["escalated"]:
             score += 0.10
@@ -174,7 +167,6 @@ def compute_score(state: Dict[str, Any]) -> float:
         if not state["escalated"]:
             score += 0.10
 
-    # Finalization bonus
     if state["finalized"]:
         score += 0.10
 
@@ -217,17 +209,17 @@ def list_tasks():
     return {"tasks": list(TASKS.keys())}
 
 
-# FINAL RESET ENDPOINT (accepts query param, JSON body, or empty POST)
+# ULTRA-COMPATIBLE RESET
 @app.post("/reset")
 def reset(
-    request: Optional[ResetRequest] = Body(default=None),
-    task_id: Optional[str] = None
+    task_id: Optional[str] = Query(default=None),
+    body: Optional[Dict[str, Any]] = Body(default=None)
 ):
-    # Accept:
-    # 1) POST /reset?task_id=...
-    # 2) POST /reset with JSON body {"task_id":"..."}
-    # 3) POST /reset with empty body (default first task for checker compatibility)
-    final_task_id = task_id or (request.task_id if request else None) or list(TASKS.keys())[0]
+    body_task_id = None
+    if body and isinstance(body, dict):
+        body_task_id = body.get("task_id")
+
+    final_task_id = task_id or body_task_id or list(TASKS.keys())[0]
 
     if final_task_id not in TASKS:
         raise HTTPException(status_code=404, detail=f"Unknown task_id: {final_task_id}")
