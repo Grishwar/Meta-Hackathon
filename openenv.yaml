@@ -1,0 +1,127 @@
+name: OpenPolicyEnv
+version: "1.1.0"
+description: >
+  A real-world OpenEnv-style benchmark environment for enterprise access review,
+  least-privilege enforcement, privilege-drift detection, and compliance-sensitive escalation.
+entrypoint: app:app
+
+metadata:
+  author: Grishwar S V
+  category: enterprise-security
+  domain: identity-governance
+  tags:
+    - openenv
+    - rl
+    - agents
+    - security
+    - access-review
+    - least-privilege
+    - compliance
+    - enterprise
+  difficulty_range:
+    - easy
+    - medium
+    - hard
+  benchmark_type: sequential-decision-making
+  partial_observability: true
+  deterministic_graders: true
+  dockerized: true
+
+api:
+  base_path: /
+  endpoints:
+    - path: /
+      method: GET
+      description: Root endpoint
+    - path: /health
+      method: GET
+      description: Health check
+    - path: /tasks
+      method: GET
+      description: List available tasks
+    - path: /reset
+      method: POST
+      description: Reset environment to a selected task
+    - path: /step
+      method: POST
+      description: Apply an action and receive observation, reward, done, and info
+    - path: /state
+      method: GET
+      description: Get current environment state
+
+task_suite:
+  count: 4
+  tasks:
+    - task_id: terminated_access_cleanup
+      difficulty: easy
+      title: Terminated Employee Access Cleanup
+      objective: Revoke all residual access for a terminated employee.
+    - task_id: contractor_least_privilege
+      difficulty: medium
+      title: Contractor Least Privilege Review
+      objective: Preserve only scope-appropriate contractor access.
+    - task_id: privilege_drift_sensitive_escalation
+      difficulty: hard
+      title: Privilege Drift with Sensitive Escalation
+      objective: Remove stale cross-functional access and escalate ambiguous sensitive risk.
+    - task_id: executive_temp_access_expiry_audit
+      difficulty: hard
+      title: Executive Temporary Access Expiry Audit
+      objective: Revoke expired critical temporary access while preserving valid executive permissions.
+
+actions:
+  supported:
+    - inspect_user
+    - inspect_permissions
+    - inspect_policy
+    - revoke_access
+    - keep_access
+    - escalate_review
+    - finalize_review
+
+observations:
+  includes:
+    - task_id
+    - title
+    - difficulty
+    - visible_user_profile
+    - visible_permissions
+    - visible_policy_rules
+    - actions_taken
+    - decisions
+    - escalated
+    - finalized
+    - step_count
+    - remaining_steps
+    - notes
+
+evaluation:
+  grading:
+    type: deterministic
+    range: [0.0, 1.0]
+    dimensions:
+      - correct_revocations
+      - correct_retention
+      - escalation_correctness
+      - completion_quality
+  rewards:
+    type: dense
+    shaped: true
+    supports_partial_progress: true
+
+baseline:
+  script: inference.py
+  style: deterministic-rule-based
+  reproducible: true
+  notes: >
+    The baseline is intentionally deterministic for stable automated validation
+    and reproducible benchmark scoring.
+
+deployment:
+  dockerfile: Dockerfile
+  port: 7860
+  platform: huggingface-spaces
+  required_env:
+    - API_BASE_URL
+    - MODEL_NAME
+    - HF_TOKEN
