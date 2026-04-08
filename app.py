@@ -209,7 +209,6 @@ def list_tasks():
     return {"tasks": list(TASKS.keys())}
 
 
-# ULTRA-COMPATIBLE RESET
 @app.post("/reset")
 def reset(
     task_id: Optional[str] = Query(default=None),
