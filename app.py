@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from copy import deepcopy
 
 app = FastAPI(
@@ -217,16 +217,17 @@ def list_tasks():
     return {"tasks": list(TASKS.keys())}
 
 
-# FIXED RESET ENDPOINT (accepts BOTH query param and JSON body)
+# FINAL RESET ENDPOINT (accepts query param, JSON body, or empty POST)
 @app.post("/reset")
 def reset(
     request: Optional[ResetRequest] = Body(default=None),
     task_id: Optional[str] = None
 ):
-    final_task_id = task_id or (request.task_id if request else None)
-
-    if not final_task_id:
-        raise HTTPException(status_code=400, detail="task_id is required")
+    # Accept:
+    # 1) POST /reset?task_id=...
+    # 2) POST /reset with JSON body {"task_id":"..."}
+    # 3) POST /reset with empty body (default first task for checker compatibility)
+    final_task_id = task_id or (request.task_id if request else None) or list(TASKS.keys())[0]
 
     if final_task_id not in TASKS:
         raise HTTPException(status_code=404, detail=f"Unknown task_id: {final_task_id}")
