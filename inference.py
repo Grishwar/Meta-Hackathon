@@ -3,7 +3,7 @@ import json
 import requests
 from openai import OpenAI
 
-ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:7860")
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
@@ -79,10 +79,10 @@ def choose_action(task_id: str, step_num: int):
     # Task-specific deterministic actions start from step 3
     if task_id == "terminated_access_cleanup":
         action_plan = [
-            {"action_type": "revoke_access", "target": "crm_view"},
-            {"action_type": "revoke_access", "target": "email_access"},
-            {"action_type": "revoke_access", "target": "slack_access"},
-            {"action_type": "finalize_review"},
+            {"action_type": "revoke_access", "permission": "crm_view"},
+            {"action_type": "revoke_access", "permission": "email_access"},
+            {"action_type": "revoke_access", "permission": "slack_access"},
+            {"action_type": "finalize"},
         ]
         idx = step_num - 3
         if 0 <= idx < len(action_plan):
@@ -90,10 +90,9 @@ def choose_action(task_id: str, step_num: int):
 
     elif task_id == "contractor_least_privilege":
         action_plan = [
-            {"action_type": "keep_access", "target": "wiki_access"},
-            {"action_type": "revoke_access", "target": "prod_db_read"},
-            {"action_type": "revoke_access", "target": "finance_dashboard_view"},
-            {"action_type": "finalize_review"},
+            {"action_type": "revoke_access", "permission": "prod_db_read"},
+            {"action_type": "revoke_access", "permission": "finance_dashboard_view"},
+            {"action_type": "finalize"},
         ]
         idx = step_num - 3
         if 0 <= idx < len(action_plan):
@@ -101,10 +100,9 @@ def choose_action(task_id: str, step_num: int):
 
     elif task_id == "privilege_drift_sensitive_escalation":
         action_plan = [
-            {"action_type": "keep_access", "target": "hr_records_edit"},
-            {"action_type": "revoke_access", "target": "finance_exports"},
-            {"action_type": "escalate_review"},
-            {"action_type": "finalize_review"},
+            {"action_type": "revoke_access", "permission": "finance_exports"},
+            {"action_type": "escalate_case"},
+            {"action_type": "finalize"},
         ]
         idx = step_num - 3
         if 0 <= idx < len(action_plan):
@@ -112,16 +110,15 @@ def choose_action(task_id: str, step_num: int):
 
     elif task_id == "executive_temp_access_expiry_audit":
         action_plan = [
-            {"action_type": "keep_access", "target": "board_docs_read"},
-            {"action_type": "keep_access", "target": "strategy_wiki_edit"},
-            {"action_type": "revoke_access", "target": "mna_data_room"},
-            {"action_type": "finalize_review"},
+            {"action_type": "revoke_access", "permission": "mna_data_room"},
+            {"action_type": "finalize"},
         ]
         idx = step_num - 3
         if 0 <= idx < len(action_plan):
             return action_plan[idx]
 
-    return {"action_type": "finalize_review"}
+    # FIX 1: Moved outside all if/elif blocks so it acts as a true fallback
+    return {"action_type": "finalize"}
 
 
 def run_task(client, task_id: str):
@@ -143,9 +140,9 @@ def run_task(client, task_id: str):
 
         try:
             result = step_env(action)
-            reward_val = result["reward"]["value"]
-            done = result["done"]
-            info = result.get("info", {})
+            reward_val = result.get("reward", 0.0)
+            # FIX 2: Use .get() with a default to avoid KeyError if field name differs
+            done = result.get("done", False)
 
             rewards.append(reward_val)
             steps_taken = step_num
@@ -158,9 +155,10 @@ def run_task(client, task_id: str):
                 error=None
             )
 
+            # FIX 3: Consistent 4-space indentation
             if done:
-                final_score = info.get("final_score", 0.0)
-                breakdown = info.get("breakdown", {})
+                final_score = result.get("score", 0.0)
+                breakdown = result.get("breakdown", {})
                 break
 
         except Exception as exc:
