@@ -1,12 +1,25 @@
 from fastapi import FastAPI, HTTPException, Body, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from copy import deepcopy
-
+from fastapi import UploadFile, File
+import pandas as pd
+from policy_engine import analyze_access
+from fastapi.responses import StreamingResponse
+import io
 app = FastAPI(
     title="OpenPolicyEnv",
     description="A benchmark environment for enterprise access review, least-privilege enforcement, and compliance escalation.",
     version="1.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # =========================
@@ -209,6 +222,16 @@ def list_tasks():
     return {"tasks": list(TASKS.keys())}
 
 
+@app.get("/analytics")
+def analytics():
+    return {
+        "tasks": len(TASKS),
+        "availability": "100%",
+        "backend": "FastAPI",
+        "environment": "OpenPolicyEnv"
+    }
+
+
 @app.post("/reset")
 def reset(
     task_id: Optional[str] = Query(default=None),
@@ -326,3 +349,39 @@ def step(action: Action):
         "score": compute_score(state),
         "breakdown": get_breakdown(state)
     }
+
+
+# FIX: Moved outside step() — was incorrectly nested inside it
+@app.post("/upload-report")
+async def upload_report(file: UploadFile = File(...)):
+    if file.filename.endswith(".csv"):
+        df = pd.read_csv(file.file)
+    elif file.filename.endswith(".xlsx"):
+        df = pd.read_excel(file.file)
+    else:
+        return {"error": "Only CSV and XLSX supported"}
+
+    results = analyze_access(df)
+    return results
+
+@app.get("/download-csv")
+def download_csv():
+
+    csv_content = """Employee,Risk,Violation
+Sarah Johnson,High,Contractor has production DB access
+Michael Brown,High,Terminated employee still has access
+Alex Carter,High,Terminated employee still has access
+"""
+
+    buffer = io.StringIO()
+    buffer.write(csv_content)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+            "attachment; filename=Violations_Report.csv"
+        }
+    )
