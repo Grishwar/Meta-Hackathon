@@ -1,98 +1,89 @@
-# OpenPolicyEnv
+# 🛡️ OpenPolicyEnv – Enterprise Access Governance Platform
 
-**OpenPolicyEnv** is a real-world benchmark environment for evaluating AI agents on enterprise access review, least-privilege enforcement, and compliance-sensitive escalation decisions.
+OpenPolicyEnv is an AI-powered Enterprise Access Governance Platform designed to detect access control violations, identify high-risk users, generate compliance insights, and recommend remediation actions.
 
-It simulates a common security and governance workflow: reviewing a user's granted permissions, comparing them against policy, deciding what to keep or revoke, and escalating ambiguous high-risk cases when necessary.
-
-This environment is designed in the spirit of **OpenEnv**: a structured, typed, containerized environment with deterministic tasks, programmatic graders, meaningful reward shaping, and a reproducible baseline inference script.
+Built for the Meta OpenPolicyEnv Hackathon, the platform helps organizations strengthen security posture through automated governance and policy analysis.
 
 ---
 
-## Why this environment matters
+## 🚀 Live Demo
 
-Enterprise access review is a real, recurring task in identity governance, security operations, and compliance workflows.
+### Frontend (Vercel)
+https://meta-hackathon-frontend-g0roagaxv-grishwars-projects.vercel.app
 
-Human reviewers routinely need to answer questions like:
-
-- Should a terminated employee still have access?
-- Does a contractor have excessive permissions?
-- Is a stale cross-functional permission a privilege-drift issue?
-- When should a case be escalated instead of auto-remediated?
-- Should temporary executive access be revoked after expiry?
-
-These are realistic, high-value tasks for agent evaluation because they require:
-
-- **partial observability** (inspect before acting)
-- **policy reasoning**
-- **risk-aware action selection**
-- **sequential decision making**
-- **tradeoffs between automation and escalation**
-- **avoiding destructive mistakes**
+### Backend API (Render)
+https://name-meta-hackathon-api.onrender.com
 
 ---
 
-## Environment Overview
+## 📌 Problem Statement
 
-OpenPolicyEnv exposes a standard API:
+Organizations often struggle with:
 
-- `POST /reset?task_id=<task_id>`
-- `POST /step`
-- `GET /state`
-- `GET /tasks`
-- `GET /health`
+- Excessive user permissions
+- Privileged account misuse
+- Orphaned accounts
+- Contractor access violations
+- Compliance audit readiness
+- Access review management
 
-### Interaction pattern
+Manual access governance is slow, expensive, and error-prone.
 
-1. `reset(task_id)` → returns the initial observation
-2. `step(action)` → returns:
-   - `observation`
-   - `reward`
-   - `done`
-   - `info`
-3. `state()` → returns current internal environment state
-
-This supports RL-style and agentic evaluation loops.
+OpenPolicyEnv automates these processes using policy-driven analysis.
 
 ---
 
-## Observation Space
+## 🎯 Features
 
-An observation includes:
+### 📤 Access Report Upload
+- Upload employee access reports (CSV)
+- Automated validation and processing
 
-- `task_id`
-- `title`
-- `difficulty`
-- `visible_user_profile`
-- `visible_permissions`
-- `visible_policy_rules`
-- `actions_taken`
-- `decisions`
-- `escalated`
-- `finalized`
-- `step_count`
-- `remaining_steps`
-- `notes`
+### ⚠️ Policy Violation Detection
+Detects:
 
-The environment is **partially observable** at reset: agents must use inspection actions to reveal more information before making decisions.
+- Contractor with production database access
+- Terminated employee still has access
+- Unauthorized privileged access
+- Excessive permissions
+- Policy compliance violations
+
+### 📊 Analytics Dashboard
+Visualize:
+
+- Compliance Score
+- Risk Score
+- High Risk Users
+- Total Violations
+- Department Risk Trends
+
+### 🔐 Governance Recommendations
+Provides actionable recommendations:
+
+- Remove inactive accounts
+- Apply least privilege principles
+- Review privileged access
+- Schedule certification reviews
+- Improve compliance posture
+
+### 📄 Executive Reporting
+Generate audit-ready governance insights.
 
 ---
 
-## Action Space
+## 🏗️ System Architecture
 
-Supported actions:
-
-- `inspect_user`
-- `inspect_permissions`
-- `inspect_policy`
-- `revoke_access`
-- `keep_access`
-- `escalate_review`
-- `finalize_review`
-
-Example action payload:
-
-```json
-{
-  "action_type": "revoke_access",
-  "target": "crm_view"
-}
+```text
+Frontend (Next.js + React)
+            │
+            ▼
+      REST API Calls
+            │
+            ▼
+Backend (FastAPI)
+            │
+            ▼
+Policy Analysis Engine
+            │
+            ▼
+Risk Assessment & Compliance Reports
