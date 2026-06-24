@@ -8,6 +8,7 @@ import pandas as pd
 from policy_engine import analyze_access
 from fastapi.responses import StreamingResponse
 import io
+
 app = FastAPI(
     title="OpenPolicyEnv",
     description="A benchmark environment for enterprise access review, least-privilege enforcement, and compliance escalation.",
@@ -16,8 +17,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -244,7 +245,10 @@ def reset(
     final_task_id = task_id or body_task_id or list(TASKS.keys())[0]
 
     if final_task_id not in TASKS:
-        raise HTTPException(status_code=404, detail=f"Unknown task_id: {final_task_id}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown task_id: {final_task_id}"
+        )
 
     state = create_initial_state(final_task_id)
     ACTIVE_SESSIONS["current"] = {
@@ -264,7 +268,10 @@ def reset(
 @app.get("/state")
 def state():
     if "current" not in ACTIVE_SESSIONS:
-        raise HTTPException(status_code=400, detail="No active session. Call /reset first.")
+        raise HTTPException(
+            status_code=400,
+            detail="No active session. Call /reset first."
+        )
 
     session = ACTIVE_SESSIONS["current"]
     return {
@@ -280,7 +287,10 @@ def state():
 @app.post("/step")
 def step(action: Action):
     if "current" not in ACTIVE_SESSIONS:
-        raise HTTPException(status_code=400, detail="No active session. Call /reset first.")
+        raise HTTPException(
+            status_code=400,
+            detail="No active session. Call /reset first."
+        )
 
     session = ACTIVE_SESSIONS["current"]
 
@@ -314,7 +324,10 @@ def step(action: Action):
 
     elif action.action_type == "revoke_access":
         if not action.permission:
-            raise HTTPException(status_code=400, detail="permission is required for revoke_access")
+            raise HTTPException(
+                status_code=400,
+                detail="permission is required for revoke_access"
+            )
 
         if action.permission in state["granted_permissions"]:
             state["granted_permissions"].remove(action.permission)
@@ -338,7 +351,10 @@ def step(action: Action):
         session["done"] = True
 
     else:
-        raise HTTPException(status_code=422, detail=f"Unknown action_type: {action.action_type}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown action_type: {action.action_type}"
+        )
 
     session["step_count"] += 1
 
@@ -351,22 +367,27 @@ def step(action: Action):
     }
 
 
-# FIX: Moved outside step() — was incorrectly nested inside it
 @app.post("/upload-report")
 async def upload_report(file: UploadFile = File(...)):
-    if file.filename.endswith(".csv"):
-        df = pd.read_csv(file.file)
-    elif file.filename.endswith(".xlsx"):
-        df = pd.read_excel(file.file)
-    else:
-        return {"error": "Only CSV and XLSX supported"}
+    try:
+        if file.filename.endswith(".csv"):
+            df = pd.read_csv(file.file)
+        elif file.filename.endswith(".xlsx"):
+            df = pd.read_excel(file.file)
+        else:
+            return {"error": "Only CSV and XLSX supported"}
 
-    results = analyze_access(df)
-    return results
+        results = analyze_access(df)
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing file: {str(e)}"
+        )
+
 
 @app.get("/download-csv")
 def download_csv():
-
     csv_content = """Employee,Risk,Violation
 Sarah Johnson,High,Contractor has production DB access
 Michael Brown,High,Terminated employee still has access
